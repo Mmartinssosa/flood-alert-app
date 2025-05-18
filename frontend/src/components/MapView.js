@@ -1,45 +1,52 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import axios from 'axios';
+import React, { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-const DEFAULT_POSITION = [ -34.6, -58.4 ]; // Ejemplo: Buenos Aires
+// Fix marker icon for leaflet in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
-const MapView = () => {
-  const [reports, setReports] = useState([]);
-  const [sensors, setSensors] = useState([]);
+const defaultPosition = [-34.8451, -58.3941]; // Entre BA y Longchamps
 
-  useEffect(() => {
-    axios.get(`${process.env.REACT_APP_API_URL}/reports`)
-      .then(res => setReports(res.data));
-    axios.get(`${process.env.REACT_APP_API_URL}/sensors`)
-      .then(res => setSensors(res.data));
-  }, []);
+function LocationMarker({ onAddMarker }) {
+  useMapEvents({
+    click(e) {
+      onAddMarker(e.latlng);
+    },
+  });
+  return null;
+}
 
-  const getLatLng = geo => geo ? [geo.coordinates[1], geo.coordinates[0]] : DEFAULT_POSITION;
+export default function MapView() {
+  const [markers, setMarkers] = useState([
+    { position: [-34.8451, -58.3941], description: "Bienvenido a la zona sur" },
+  ]);
+
+  const handleAddMarker = (latlng) => {
+    const desc = prompt("Descripción del reporte:");
+    if (!desc) return;
+    setMarkers([...markers, { position: [latlng.lat, latlng.lng], description: desc }]);
+  };
 
   return (
-    <div style={{ height: 400, marginBottom: 20 }}>
-      <MapContainer center={DEFAULT_POSITION} zoom={12} style={{ height: '100%', width: '100%' }}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {reports.map(report => (
-          <Marker key={report.id} position={getLatLng(report.location)}>
-            <Popup>
-              <strong>{report.user}</strong>: {report.description}
-            </Popup>
-          </Marker>
-        ))}
-        {sensors.map(sensor => (
-          <Marker key={sensor.id} position={getLatLng(sensor.location)}>
-            <Popup>
-              Sensor: {sensor.name} <br />
-              Tipo: {sensor.type} <br />
-              Valor: {sensor.value}
-            </Popup>
+    <div style={{ height: "350px", width: "100%", margin: "20px auto" }}>
+      <MapContainer center={defaultPosition} zoom={13} style={{ height: "100%", width: "100%" }}>
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <LocationMarker onAddMarker={handleAddMarker} />
+        {markers.map((m, i) => (
+          <Marker key={i} position={m.position}>
+            <Popup>{m.description}</Popup>
           </Marker>
         ))}
       </MapContainer>
     </div>
   );
-};
-
-export default MapView;
+}
